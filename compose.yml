@@ -1,0 +1,76 @@
+version: '3.9'
+
+services:
+  # Frontend service
+  e-comm-app:
+    image: e-comm-app
+    container_name: e-comm-app
+    ports:
+      - "3000:3000"
+    depends_on:
+      - mongo
+    networks:
+      - frontend
+      - backend
+
+  # MongoDB service
+  mongo:
+    image: mongo:latest
+    container_name: mongo
+    ports:
+      - "27017:27017"
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=root
+      - MONGO_INITDB_ROOT_PASSWORD=example
+    volumes:
+      - mongo-data:/data/db
+      - ./seedDB.js:/docker-entrypoint-initdb.d/seedDB.js
+    networks:
+      - backend
+    # Healthcheck to see if database is up
+    healthcheck:
+      test: ["CMD", "mongo", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Mongo Express (GUI for MongoDB)
+  mongo-express:
+    image: mongo-express:latest
+    container_name: mongo-express
+    restart: always
+    ports:
+      - "8081:8081"
+    environment:
+      - ME_CONFIG_MONGODB_ADMINUSERNAME=root
+      - ME_CONFIG_MONGODB_ADMINPASSWORD=example
+      - ME_CONFIG_MONGODB_SERVER=mongo
+    depends_on:
+      - mongo
+    networks:
+      - backend
+      - frontend
+
+  # Nginx service
+  nginx:
+    image: nginx:latest
+    container_name: nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./ssl/localhost.crt:/etc/ssl/certs/localhost.crt
+      - ./ssl/localhost.key:/etc/ssl/private/localhost.key
+    depends_on:
+      - e-comm-app
+    networks:
+      - frontend
+
+volumes:
+  mongo-data:
+
+networks:
+  frontend:
+  backend:
+    internal: true
